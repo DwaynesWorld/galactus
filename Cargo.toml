@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "galactus-core",
+    "galactus-ingester",
+    "galactus-registry",
+    "galactus-search",
+]

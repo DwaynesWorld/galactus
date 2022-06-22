@@ -1,0 +1,15 @@
+[package]
+authors = ["Kyle Thompson"]
+description = "A collection of protobuf types that can be used with `galactus`."
+edition = "2021"
+license = "MIT"
+name = "galactus-registry"
+version = "0.1.0"
+
+[dependencies]
+tonic = "0.7"
+prost = "0.10"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+[build-dependencies]
+tonic-build = "0.7"
