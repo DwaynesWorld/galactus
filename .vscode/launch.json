@@ -1,0 +1,138 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-core:unit-test",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=galactus-core"
+                ],
+                "filter": {
+                    "name": "galactus-core",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-ingester",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=galactus-ingester",
+                    "--package=galactus-ingester"
+                ],
+                "filter": {
+                    "name": "galactus-ingester",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-ingester:unit-test",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=galactus-ingester",
+                    "--package=galactus-ingester"
+                ],
+                "filter": {
+                    "name": "galactus-ingester",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-registry",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=galactus-registry",
+                    "--package=galactus-registry"
+                ],
+                "filter": {
+                    "name": "galactus-registry",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-registry:unit-test",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=galactus-registry",
+                    "--package=galactus-registry"
+                ],
+                "filter": {
+                    "name": "galactus-registry",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-search",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=galactus-search",
+                    "--package=galactus-search"
+                ],
+                "filter": {
+                    "name": "galactus-search",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "galactus-search:unit-test",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=galactus-search",
+                    "--package=galactus-search"
+                ],
+                "filter": {
+                    "name": "galactus-search",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,75 +1,146 @@
-use std::collections::HashMap;
-use tonic::{transport::Server, Request, Response, Status};
+#[macro_use]
+extern crate lazy_static;
 
-use config::configuration_server::{Configuration, ConfigurationServer};
-use config::{
-    ConfigEntry, CreateConfigRequest, DeleteConfigRequest, EntryKind, GetConfigRequest,
-    ListConfigsRequest, ListConfigsResponse, UpdateConfigRequest,
-};
-
-pub mod config {
+pub mod proto {
     tonic::include_proto!("config.v1");
 }
 
+use async_once::AsyncOnce;
+use proto::configuration_server::{Configuration, ConfigurationServer};
+use std::sync::Arc;
+use tonic::{transport::Server, Request, Response, Status};
+
+use galactus_core::session::{create_session, TcpSession};
+use galactus_core::{ConfigEntry, ConfigEntryStore};
+
+lazy_static! {
+    static ref SESSION: AsyncOnce<Arc<TcpSession>> = AsyncOnce::new(async {
+        let session = create_session().await;
+        Arc::new(session)
+    });
+}
+
+async fn new_session() -> Arc<TcpSession> {
+    SESSION.get().await.clone()
+}
+
 #[derive(Debug, Default)]
-pub struct ConfigurationHandlers {}
+pub struct ConfigurationEndpoints;
 
 #[tonic::async_trait]
-impl Configuration for ConfigurationHandlers {
+impl Configuration for ConfigurationEndpoints {
     async fn list_configs(
         &self,
-        request: Request<ListConfigsRequest>,
-    ) -> Result<Response<ListConfigsResponse>, Status> {
-        let _ = request.into_inner();
-        todo!()
+        request: Request<proto::ListConfigsRequest>,
+    ) -> Result<Response<proto::ListConfigsResponse>, Status> {
+        let mut store = ConfigEntryStore::new(new_session().await);
+        let request = request.into_inner();
+        let kind = request.kind.try_into().expect("kind is invalid");
+
+        let configs = store
+            .list(kind)
+            .await
+            .expect("error querying db")
+            .iter()
+            .map(|c| proto::ConfigEntry {
+                kind: c.kind.clone() as i32,
+                name: c.name.clone(),
+                metadata: c.meta.clone(),
+                created_at: c.created_at.timestamp_millis() as u64,
+                updated_at: c.updated_at.timestamp_millis() as u64,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Response::new(proto::ListConfigsResponse {
+            configs,
+            next_page_token: "".to_string(),
+        }))
     }
 
     async fn get_config(
         &self,
-        request: Request<GetConfigRequest>,
-    ) -> Result<Response<ConfigEntry>, Status> {
+        request: Request<proto::GetConfigRequest>,
+    ) -> Result<Response<proto::ConfigEntry>, Status> {
+        let mut store = ConfigEntryStore::new(new_session().await);
         let request = request.into_inner();
+        let kind = request.kind.try_into().expect("kind is invalid");
 
-        let response = Response::new(ConfigEntry {
-            kind: EntryKind::Kafka.into(),
-            name: request.name,
-            create_time: 1,
-            modify_time: 1,
-            metadata: HashMap::new(),
-        });
+        let config = store
+            .get(kind, &request.name)
+            .await
+            .expect("error querying db");
 
-        Ok(response)
+        if let Some(config) = config {
+            let response = Response::new(proto::ConfigEntry {
+                kind: config.kind as i32,
+                name: config.name,
+                metadata: config.meta,
+                created_at: config.created_at.timestamp_millis() as u64,
+                updated_at: config.updated_at.timestamp_millis() as u64,
+            });
+
+            Ok(response)
+        } else {
+            Err(Status::not_found("unable to find config"))
+        }
     }
 
     async fn create_config(
         &self,
-        request: Request<CreateConfigRequest>,
-    ) -> Result<Response<ConfigEntry>, Status> {
+        request: Request<proto::CreateConfigRequest>,
+    ) -> Result<Response<proto::ConfigEntry>, Status> {
+        let mut store = ConfigEntryStore::new(new_session().await);
         let request = request.into_inner();
+        let kind = request.kind.try_into().expect("kind is invalid");
+        let config = ConfigEntry::new(kind, request.name, request.metadata).unwrap();
+        let result = store.insert(config.clone()).await;
 
-        let response = Response::new(ConfigEntry {
-            kind: request.kind,
-            name: request.name,
-            create_time: 1,
-            modify_time: 1,
-            metadata: request.metadata,
-        });
+        if result.is_ok() {
+            let response = Response::new(proto::ConfigEntry {
+                kind: config.kind as i32,
+                name: config.name,
+                metadata: config.meta,
+                created_at: config.created_at.timestamp_millis() as u64,
+                updated_at: config.updated_at.timestamp_millis() as u64,
+            });
 
-        Ok(response)
+            Ok(response)
+        } else {
+            Err(Status::failed_precondition("error occurred during create"))
+        }
     }
 
     async fn update_config(
         &self,
-        request: Request<UpdateConfigRequest>,
-    ) -> Result<Response<ConfigEntry>, Status> {
+        request: Request<proto::UpdateConfigRequest>,
+    ) -> Result<Response<proto::ConfigEntry>, Status> {
+        let mut store = ConfigEntryStore::new(new_session().await);
         let request = request.into_inner();
+        let kind = request.kind.try_into().expect("kind is invalid");
 
-        let response = Response::new(ConfigEntry {
-            kind: request.kind,
-            name: request.name,
-            create_time: 1,
-            modify_time: 1,
-            metadata: HashMap::new(),
+        let config = store
+            .get(kind, &request.name)
+            .await
+            .expect("error querying db");
+
+        if config.is_none() {
+            return Err(Status::not_found("unable to find config"));
+        }
+
+        let mut config = config.unwrap();
+        config.meta = request.metadata;
+
+        let result = store.update(config.clone()).await;
+        if result.is_err() {
+            return Err(Status::failed_precondition("error occurred during create"));
+        }
+
+        let response = Response::new(proto::ConfigEntry {
+            kind: config.kind as i32,
+            name: config.name,
+            metadata: config.meta,
+            created_at: config.created_at.timestamp_millis() as u64,
+            updated_at: config.updated_at.timestamp_millis() as u64,
         });
 
         Ok(response)
@@ -77,21 +148,23 @@ impl Configuration for ConfigurationHandlers {
 
     async fn delete_config(
         &self,
-        request: Request<DeleteConfigRequest>,
+        request: Request<proto::DeleteConfigRequest>,
     ) -> Result<Response<()>, Status> {
+        let mut store = ConfigEntryStore::new(new_session().await);
         let request = request.into_inner();
+        let kind = request.kind.try_into().expect("kind is invalid");
 
-        println!(
-            "Deleting config entry with kind '{}' and name '{}'",
-            request.kind, request.name
-        );
+        store
+            .remove(kind, &request.name)
+            .await
+            .expect("error deleting config");
 
         Ok(Response::new(()))
     }
 }
 
-fn make_configuration_service() -> ConfigurationServer<ConfigurationHandlers> {
-    ConfigurationServer::new(ConfigurationHandlers::default())
+fn make_configuration_service() -> ConfigurationServer<ConfigurationEndpoints> {
+    ConfigurationServer::new(ConfigurationEndpoints::default())
 }
 
 #[tokio::main]

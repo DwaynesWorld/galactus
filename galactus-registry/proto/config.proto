@@ -6,7 +6,8 @@ package config.v1;
 
 // Kind of the config entries.
 enum EntryKind {
-	KAFKA = 0;
+	UNKNOWN = 0;
+	KAFKA = 1;
 }
 
 message ListConfigsRequest {
@@ -83,10 +84,10 @@ message ConfigEntry {
 	map<string, string> metadata = 3;
 	
 	// Specifies the create time of the entry.
-	uint64 create_time = 4;
+	uint64 created_at = 4;
 	
 	// Specifies the modify time of the entry.
-	uint64 modify_time = 5;
+	uint64 updated_at = 5;
 }
 
 service Configuration {
