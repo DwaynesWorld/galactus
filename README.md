@@ -4,7 +4,7 @@ Galactus is a cosmic entity who consumes planets to sustain his life force, and 
 
 ## Endpoints
 
-#### Configuration
+### Configuration
 The endpoints create, update, delete and query configuration entries registered with Galactus
 
 - List Configurations: `GET /configurations/:kind`

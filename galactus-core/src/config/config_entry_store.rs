@@ -1,6 +1,7 @@
 use crate::session::TcpSession;
 use crate::{ConfigEntry, EntryKind};
 
+use async_trait::async_trait;
 use cdrs_tokio::query_values;
 use cdrs_tokio::types::prelude::{Map, Row};
 use cdrs_tokio::types::{AsRustType, ByName};
@@ -29,13 +30,27 @@ impl Error for DatabaseError {
     }
 }
 
-pub struct ConfigEntryStore {
+#[async_trait]
+pub trait ConfigEntryStore {
+    async fn list(&mut self, kind: EntryKind) -> Result<Vec<ConfigEntry>, DatabaseError>;
+    async fn get(
+        &mut self,
+        kind: EntryKind,
+        name: &String,
+    ) -> result::Result<Option<ConfigEntry>, DatabaseError>;
+    async fn insert(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError>;
+    async fn update(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError>;
+    async fn remove(&mut self, kind: EntryKind, name: &String)
+        -> result::Result<(), DatabaseError>;
+}
+
+pub struct CassandraStore {
     /// Cassandra session that holds a pool of connections to nodes and provides an interface for
     /// interacting with the cluster.
     session: Arc<TcpSession>,
 }
 
-impl ConfigEntryStore {
+impl CassandraStore {
     pub fn new(session: Arc<TcpSession>) -> Self {
         Self { session }
     }
@@ -58,8 +73,11 @@ impl ConfigEntryStore {
 
         ConfigEntry::init(kind, name, meta, created_at, updated_at).unwrap()
     }
+}
 
-    pub async fn list(&mut self, kind: EntryKind) -> Result<Vec<ConfigEntry>, DatabaseError> {
+#[async_trait]
+impl ConfigEntryStore for CassandraStore {
+    async fn list(&mut self, kind: EntryKind) -> Result<Vec<ConfigEntry>, DatabaseError> {
         let rows = self
             .session
             .query_with_values(
@@ -83,7 +101,7 @@ impl ConfigEntryStore {
         Ok(entries)
     }
 
-    pub async fn get(
+    async fn get(
         &mut self,
         kind: EntryKind,
         name: &String,
@@ -109,7 +127,7 @@ impl ConfigEntryStore {
         Ok(Some(self.from_row(row)))
     }
 
-    pub async fn insert(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError> {
+    async fn insert(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError> {
         let query = "
             INSERT INTO registry.config_entries (
                 kind, 
@@ -142,7 +160,7 @@ impl ConfigEntryStore {
         })
     }
 
-    pub async fn update(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError> {
+    async fn update(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError> {
         let query = "
             UPDATE registry.config_entries 
             SET meta = ?, modify_timestamp = ?
@@ -165,7 +183,7 @@ impl ConfigEntryStore {
         })
     }
 
-    pub async fn remove(
+    async fn remove(
         &mut self,
         kind: EntryKind,
         name: &String,

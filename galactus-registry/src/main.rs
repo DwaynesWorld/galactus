@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tonic::{transport::Server, Request, Response, Status};
 
 use galactus_core::session::{create_session, TcpSession};
-use galactus_core::{ConfigEntry, ConfigEntryStore};
+use galactus_core::{CassandraStore, ConfigEntry, ConfigEntryStore};
 
 lazy_static! {
     static ref SESSION: AsyncOnce<Arc<TcpSession>> = AsyncOnce::new(async {
@@ -33,7 +33,7 @@ impl Configuration for ConfigurationEndpoints {
         &self,
         request: Request<proto::ListConfigsRequest>,
     ) -> Result<Response<proto::ListConfigsResponse>, Status> {
-        let mut store = ConfigEntryStore::new(new_session().await);
+        let mut store = CassandraStore::new(new_session().await);
         let request = request.into_inner();
         let kind = request.kind.try_into().expect("kind is invalid");
 
@@ -61,7 +61,7 @@ impl Configuration for ConfigurationEndpoints {
         &self,
         request: Request<proto::GetConfigRequest>,
     ) -> Result<Response<proto::ConfigEntry>, Status> {
-        let mut store = ConfigEntryStore::new(new_session().await);
+        let mut store = CassandraStore::new(new_session().await);
         let request = request.into_inner();
         let kind = request.kind.try_into().expect("kind is invalid");
 
@@ -89,7 +89,7 @@ impl Configuration for ConfigurationEndpoints {
         &self,
         request: Request<proto::CreateConfigRequest>,
     ) -> Result<Response<proto::ConfigEntry>, Status> {
-        let mut store = ConfigEntryStore::new(new_session().await);
+        let mut store = CassandraStore::new(new_session().await);
         let request = request.into_inner();
         let kind = request.kind.try_into().expect("kind is invalid");
         let config = ConfigEntry::new(kind, request.name, request.metadata).unwrap();
@@ -114,7 +114,7 @@ impl Configuration for ConfigurationEndpoints {
         &self,
         request: Request<proto::UpdateConfigRequest>,
     ) -> Result<Response<proto::ConfigEntry>, Status> {
-        let mut store = ConfigEntryStore::new(new_session().await);
+        let mut store = CassandraStore::new(new_session().await);
         let request = request.into_inner();
         let kind = request.kind.try_into().expect("kind is invalid");
 
@@ -150,7 +150,7 @@ impl Configuration for ConfigurationEndpoints {
         &self,
         request: Request<proto::DeleteConfigRequest>,
     ) -> Result<Response<()>, Status> {
-        let mut store = ConfigEntryStore::new(new_session().await);
+        let mut store = CassandraStore::new(new_session().await);
         let request = request.into_inner();
         let kind = request.kind.try_into().expect("kind is invalid");
 
