@@ -7,10 +7,11 @@ CREATE KEYSPACE IF NOT EXISTS registry
 USE "registry";
 
 CREATE TABLE IF NOT EXISTS config_entries (
+	"id" bigint,
     "kind" int,
     "name" text,
     "meta" map<text, text>,
     "created_at" timestamp,
     "updated_at" timestamp,
-    PRIMARY KEY (kind, name)
-) WITH CLUSTERING ORDER BY (name ASC);
+    PRIMARY KEY (kind, id)
+) WITH CLUSTERING ORDER BY (id DESC);
