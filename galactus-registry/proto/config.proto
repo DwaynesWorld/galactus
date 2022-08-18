@@ -4,7 +4,7 @@ import "google/protobuf/empty.proto";
 
 package config.v1;
 
-// Kind of the config entries.
+// Kind of the configs.
 enum EntryKind {
 	UNKNOWN = 0;
 	KAFKA = 1;
@@ -24,7 +24,7 @@ message ListConfigsRequest {
 message ListConfigsResponse {
 	// A paginated list of configs. There will be a maximum number of 
 	// items returned based on the page_size field in the request.
-	repeated ConfigEntry configs = 1;
+	repeated Config configs = 1;
 	
 	// Token to retrieve the next page of results, or empty if there are no
 	// more results in the list.
@@ -32,19 +32,19 @@ message ListConfigsResponse {
 }
 
 message GetConfigRequest {
-	// Specifies the kind of the entry to fetch.
-	EntryKind kind = 1;
+	// Specifies the unique identifier of the config to get.
+	int64 id = 1;
 	
-	// Specifies the name of the entry to fetch.
-	string name = 2;
+	// Specifies the kind of the entry to fetch.
+	EntryKind kind = 2;
 }
 
 message CreateConfigRequest {
-	// Specifies the kind of the entry to create.
+	// Specifies the kind of the config to create.
 	EntryKind kind = 1;
 	
-	// Specifies the name of the entry to create. 
-	// The name of the config entry must be global.
+	// Specifies the name of the config to create. 
+	// The name of the config config must be global.
 	string name = 2;
 	
 	// Specifies configuration metadatas. 
@@ -53,11 +53,11 @@ message CreateConfigRequest {
 }
 
 message UpdateConfigRequest {
+	// Specifies the unique identifier of the config to update.
+	int64 id = 1;
+
 	// Specifies the kind of the entry to update.
-	EntryKind kind = 1;
-	
-	// Specifies the name of the entry to update. 
-	string name = 2;
+	EntryKind kind = 2;
 	
 	// Specifies configuration metadatas. 
 	// Key-Value pairs depend on the EntryKind.
@@ -65,35 +65,38 @@ message UpdateConfigRequest {
 }
 
 message DeleteConfigRequest {
-	// Specifies the kind of the entry to delete.
-	EntryKind kind = 1;
-	
-	// Specifies the name of the entry to delete. 
-	string name = 2;
+	// Specifies the id of the config to delete.
+	int64 id = 1;
+
+	// Specifies the kind of the entry to update.
+	EntryKind kind = 2;
 }
 
 // The configuration for a service with the given name.
-message ConfigEntry {
-	// Specifies the kind of the entry.
-	EntryKind kind = 1;
+message Config {
+	// Specifies the config's unique identifier.
+	int64 id = 1;
+
+	// Specifies the kind of the config.
+	EntryKind kind = 2;
 	
-	// Specifies the kind of the entry.
-	string name = 2;
+	// Specifies the kind of the config.
+	string name = 3;
 	
-	// Specifies the Metadate of the entry.
-	map<string, string> metadata = 3;
+	// Specifies the Metadate of the config.
+	map<string, string> metadata = 4;
 	
-	// Specifies the create time of the entry.
-	uint64 created_at = 4;
+	// Specifies the create time of the config.
+	uint64 created_at = 5;
 	
-	// Specifies the modify time of the entry.
-	uint64 updated_at = 5;
+	// Specifies the modify time of the config.
+	uint64 updated_at = 6;
 }
 
-service Configuration {
+service Configurations {
 	rpc ListConfigs (ListConfigsRequest) returns (ListConfigsResponse);
-	rpc GetConfig (GetConfigRequest) returns (ConfigEntry);
-	rpc CreateConfig (CreateConfigRequest) returns (ConfigEntry);
-	rpc UpdateConfig (UpdateConfigRequest) returns (ConfigEntry);
+	rpc GetConfig (GetConfigRequest) returns (Config);
+	rpc CreateConfig (CreateConfigRequest) returns (Config);
+	rpc UpdateConfig (UpdateConfigRequest) returns (Config);
 	rpc DeleteConfig (DeleteConfigRequest) returns (google.protobuf.Empty);
 }

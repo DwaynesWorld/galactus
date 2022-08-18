@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package subscription.v1;
+
+
+message ListSubscriptionsRequest {	
+	// The maximum number of items to return.
+	int32 page_size = 1;
+	
+	// The next_page_token value returned from a previous List request, if any.
+	string page_token = 2;
+}
+
+message ListSubscriptionsResponse {
+	// A paginated list of subscriptions. There will be a maximum number of 
+	// items returned based on the page_size field in the request.
+	repeated Subscription subscriptions = 1;
+
+	// Token to retrieve the next page of results, or empty if there are no
+	// more results in the list.
+	string next_page_token = 2;
+}
+
+message GetSubscriptionRequest {
+	// Specifies the unique identifier of the subscription to get.
+	int64 id = 1;
+}
+
+message CreateSubscriptionRequest {
+    // Specifies the unique identifier of the subscription config.
+    int64 config_id = 1;
+	
+	// Specifies the topic name for the subscription.
+	string topic_name = 2;
+}
+
+message UpdateSubscriptionRequest {
+	// Specifies the unique identifier of the subscription to update.
+	int64 id = 1;
+
+    // Specifies the unique identifier of the subscription config.
+    int64 config_id = 2;
+	
+	// Specifies the topic name for the subscription.
+	string topic_name = 3;
+}
+
+message DeleteSubscriptionRequest {
+	// Specifies the unique identifier of the subscription to delete.
+	int64 id = 1;
+}
+
+// The subscription for a topic with the given name.
+message Subscription {
+    // Specifies the unique identifier of the subscription.
+    int64 id = 1;
+
+    // Specifies the unique identifier of the subscription config.
+    int64 config_id = 2;
+	
+	// Specifies the topic name for the subscription.
+	string topic_name = 3;
+	
+	// Specifies the create time of the subscription.
+	uint64 created_at = 4;
+	
+	// Specifies the modify time of the subscription.
+	uint64 updated_at = 5;
+}
+
+service Subscriptions {
+	rpc ListSubscriptions (ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+	rpc GetSubscription (GetSubscriptionRequest) returns (Subscription);
+	rpc CreateSubscription (CreateSubscriptionRequest) returns (Subscription);
+	rpc UpdateSubscription (UpdateSubscriptionRequest) returns (Subscription);
+	rpc DeleteSubscription (DeleteSubscriptionRequest) returns (google.protobuf.Empty);
+}

@@ -31,6 +31,9 @@ impl TryFrom<i32> for EntryKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConfigEntry {
+    /// The id of configuration entry.
+    pub id: i64,
+
     /// The kind of configuration entry. Will always be Kafka.
     pub kind: EntryKind,
 
@@ -49,11 +52,13 @@ pub struct ConfigEntry {
 
 impl ConfigEntry {
     pub fn new(
+        id: i64,
         kind: EntryKind,
         name: String,
         meta: HashMap<String, String>,
     ) -> Result<Self, &'static str> {
         Ok(ConfigEntry {
+            id,
             kind,
             name,
             meta,
@@ -63,6 +68,7 @@ impl ConfigEntry {
     }
 
     pub fn init(
+        id: i64,
         kind: EntryKind,
         name: String,
         meta: HashMap<String, String>,
@@ -70,6 +76,7 @@ impl ConfigEntry {
         updated_at: DateTime<Utc>,
     ) -> Result<Self, &'static str> {
         Ok(ConfigEntry {
+            id,
             kind,
             name,
             meta,

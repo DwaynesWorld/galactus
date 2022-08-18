@@ -1,4 +1,5 @@
 use crate::session::TcpSession;
+use crate::snowflake::SnowflakeGenerator;
 use crate::{ConfigEntry, EntryKind};
 
 use async_trait::async_trait;
@@ -35,27 +36,33 @@ pub trait ConfigEntryStore {
     async fn list(&mut self, kind: EntryKind) -> Result<Vec<ConfigEntry>, DatabaseError>;
     async fn get(
         &mut self,
+        id: i64,
         kind: EntryKind,
-        name: &String,
     ) -> result::Result<Option<ConfigEntry>, DatabaseError>;
-    async fn insert(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError>;
-    async fn update(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError>;
-    async fn remove(&mut self, kind: EntryKind, name: &String)
-        -> result::Result<(), DatabaseError>;
+    async fn insert(&mut self, entry: ConfigEntry) -> result::Result<i64, DatabaseError>;
+    async fn update(&mut self, entry: ConfigEntry) -> result::Result<i64, DatabaseError>;
+    async fn remove(&mut self, id: i64, kind: EntryKind) -> result::Result<i64, DatabaseError>;
 }
 
 pub struct CassandraStore {
     /// Cassandra session that holds a pool of connections to nodes and provides an interface for
     /// interacting with the cluster.
     session: Arc<TcpSession>,
+
+    /// A Distributed Unique ID generator.
+    id_generator: Arc<SnowflakeGenerator>,
 }
 
 impl CassandraStore {
-    pub fn new(session: Arc<TcpSession>) -> Self {
-        Self { session }
+    pub fn new(session: Arc<TcpSession>, id_generator: Arc<SnowflakeGenerator>) -> Self {
+        Self {
+            session,
+            id_generator,
+        }
     }
 
     fn from_row(&self, row: &Row) -> ConfigEntry {
+        let id = row.r_by_name::<i64>(&"id").unwrap();
         let name = row.r_by_name::<String>(&"name").unwrap();
 
         let kind = match row.r_by_name::<i32>(&"kind").unwrap() {
@@ -71,7 +78,7 @@ impl CassandraStore {
         let created_at = row.r_by_name::<DateTime<Utc>>(&"created_at").unwrap();
         let updated_at = row.r_by_name::<DateTime<Utc>>(&"updated_at").unwrap();
 
-        ConfigEntry::init(kind, name, meta, created_at, updated_at).unwrap()
+        ConfigEntry::init(id, kind, name, meta, created_at, updated_at).unwrap()
     }
 }
 
@@ -103,14 +110,14 @@ impl ConfigEntryStore for CassandraStore {
 
     async fn get(
         &mut self,
+        id: i64,
         kind: EntryKind,
-        name: &String,
     ) -> result::Result<Option<ConfigEntry>, DatabaseError> {
         let rows = self
             .session
             .query_with_values(
-                "SELECT * FROM registry.config_entries WHERE kind = ? AND name = ?;",
-                query_values!(kind as i32, name.to_owned()),
+                "SELECT * FROM registry.config_entries WHERE kind = ? and id = ?;",
+                query_values!(kind as i32, id),
             )
             .await
             .expect("query")
@@ -127,21 +134,26 @@ impl ConfigEntryStore for CassandraStore {
         Ok(Some(self.from_row(row)))
     }
 
-    async fn insert(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError> {
+    async fn insert(&mut self, entry: ConfigEntry) -> result::Result<i64, DatabaseError> {
         let query = "
             INSERT INTO registry.config_entries (
+                id,
                 kind, 
                 name, 
                 meta, 
                 created_at, 
                 updated_at)
-            VALUES (?, ?, ?, ?, ?);";
+            VALUES (?, ?, ?, ?, ?, ?);";
+
+        let mut entry = entry.clone();
+        entry.id = self.id_generator.next_id().unwrap();
 
         let result = self
             .session
             .query_with_values(
                 query,
                 query_values!(
+                    entry.id,
                     entry.kind as i32,
                     entry.name,
                     entry.meta,
@@ -152,7 +164,7 @@ impl ConfigEntryStore for CassandraStore {
             .await;
 
         if result.is_ok() {
-            return Ok(());
+            return Ok(entry.id);
         }
 
         Err(DatabaseError {
@@ -160,22 +172,22 @@ impl ConfigEntryStore for CassandraStore {
         })
     }
 
-    async fn update(&mut self, entry: ConfigEntry) -> result::Result<(), DatabaseError> {
+    async fn update(&mut self, entry: ConfigEntry) -> result::Result<i64, DatabaseError> {
         let query = "
             UPDATE registry.config_entries 
             SET meta = ?, modify_timestamp = ?
-            WHERE kind = ? AND name = ?;";
+            WHERE kind = ? and id = ?;";
 
         let result = self
             .session
             .query_with_values(
                 query,
-                query_values!(entry.meta, entry.updated_at, entry.kind as i32, entry.name),
+                query_values!(entry.meta, entry.updated_at, entry.kind as i32, entry.id),
             )
             .await;
 
         if result.is_ok() {
-            return Ok(());
+            return Ok(entry.id);
         }
 
         Err(DatabaseError {
@@ -183,21 +195,17 @@ impl ConfigEntryStore for CassandraStore {
         })
     }
 
-    async fn remove(
-        &mut self,
-        kind: EntryKind,
-        name: &String,
-    ) -> result::Result<(), DatabaseError> {
+    async fn remove(&mut self, id: i64, kind: EntryKind) -> result::Result<i64, DatabaseError> {
         let result = self
             .session
             .query_with_values(
-                "DELETE FROM registry.config_entries WHERE kind = ? AND name = ?;",
-                query_values!(kind as i32, name.to_owned()),
+                "DELETE FROM registry.config_entries WHERE kind = ? and id = ?;",
+                query_values!(kind as i32, id),
             )
             .await;
 
         if result.is_ok() {
-            return Ok(());
+            return Ok(id);
         }
 
         Err(DatabaseError {
